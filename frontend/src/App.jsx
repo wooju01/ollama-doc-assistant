@@ -15,7 +15,7 @@ export default function App() {
 
   // 첨부 파일 색인 상태: idle | uploading | ready | error
   const [uploadStatus, setUploadStatus] = useState("idle");
-  const [uploadedDoc, setUploadedDoc] = useState(null); // { source, chunks }
+  const [uploadedDoc, setUploadedDoc] = useState(null); // { source, chunks, text }
   const [uploadError, setUploadError] = useState("");
   const uploadIdRef = useRef(0);
 
@@ -24,7 +24,9 @@ export default function App() {
     event.target.value = "";
     if (!file) return;
 
-    setText(await file.text());
+    // PDF는 바이너리라 브라우저에서 글자로 읽을 수 없다 → 업로드 후 서버가 뽑아 준 텍스트를 쓴다
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
+    setText(isPdf ? "" : await file.text());
     setFileName(file.name);
 
     // 파일을 연달아 바꾸면 늦게 끝난 예전 업로드 결과는 무시한다
@@ -37,6 +39,7 @@ export default function App() {
       const data = await uploadDocument({ file });
       if (uploadId !== uploadIdRef.current) return;
       setUploadedDoc(data);
+      setText(data.text); // 서버가 뽑은 텍스트로 요약한다 (PDF도 요약 가능)
       setUploadStatus("ready");
     } catch (error) {
       if (uploadId !== uploadIdRef.current) return;
@@ -78,10 +81,10 @@ export default function App() {
             </span>
 
             <label className="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
-              파일 첨부 (.md, .txt)
+              파일 첨부 (.md, .txt, .pdf)
               <input
                 type="file"
-                accept=".md,.txt"
+                accept=".md,.txt,.pdf"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -91,6 +94,11 @@ export default function App() {
           {fileName && (
             <p className="mb-2 text-sm text-gray-500">
               첨부된 파일: {fileName}
+            </p>
+          )}
+          {uploadStatus === "uploading" && !text && (
+            <p className="mb-2 text-sm text-gray-500">
+              PDF에서 글자를 뽑고 있어요. 끝나면 요약할 수 있어요.
             </p>
           )}
           <SummaryRequest text={text} />

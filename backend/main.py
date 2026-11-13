@@ -7,11 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from answer import answer
+from extractors import SUPPORTED_EXTENSIONS, ExtractError, extract_text
 from ingest import get_collection, ingest_text
 from summarize import summarize
 
-ALLOWED_EXTENSIONS = {".md", ".txt"}
-MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # 2MB
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  
+
 
 app = FastAPI(title="Ollama Doc Assistant")
 
@@ -40,31 +41,34 @@ def create_summary(body: SummaryRequest):
 class DocumentResponse(BaseModel):
     source: str
     chunks: int
+    text:str
 
 
 @app.post("/api/v1/documents", response_model=DocumentResponse)
 async def upload_document(file: UploadFile):
-    """업로드한 파일을 조각내고 임베딩해서 벡터 DB에 저장한다 (같은 이름이면 덮어쓴다)."""
+    """업로드한 파일에서 텍스트를 뽑고, 조각내고 임베딩해서 벡터 DB에 저장한다 (같은 이름이면 덮어쓴다)."""
     # 경로가 섞여 와도 파일명만 쓰고, 한글 자모 분리형(NFD)은 합친다(NFC)
     filename = unicodedata.normalize("NFC", PurePath(file.filename or "").name)
-    if PurePath(filename).suffix.lower() not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=415, detail="지금은 .md, .txt 파일만 지원합니다.")
+    if PurePath(filename).suffix.lower() not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(status_code=415, detail="지금은 .md, .txt, .pdf 파일만 지원합니다.")
 
     data = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="파일이 너무 큽니다. (최대 2MB)")
+        raise HTTPException(status_code=413, detail="파일이 너무 큽니다. (최대 20MB)")
 
     try:
-        text = data.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=422, detail="UTF-8 텍스트 파일만 읽을 수 있습니다.")
+        # PDF 추출은 시간이 걸릴 수 있어서 스레드에서 돌린다
+        text = await run_in_threadpool(extract_text, filename, data)
+    except ExtractError as error:
+        raise HTTPException(status_code=422, detail=str(error))
 
     if not text.strip():
         raise HTTPException(status_code=422, detail="파일 내용이 비어 있습니다.")
 
     # 임베딩은 몇 초 걸리는 동기 작업이라, 그동안 다른 요청(요약 등)이 막히지 않게 스레드에서 돌린다
     chunks = await run_in_threadpool(ingest_text, get_collection(), text, filename)
-    return {"source": filename, "chunks": chunks}
+    return {"source": filename, "chunks": chunks, "text": text}
+
 
 
 class QuestionRequest(BaseModel):
