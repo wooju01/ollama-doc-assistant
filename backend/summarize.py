@@ -2,6 +2,9 @@ from pathlib import Path
 import ollama
 
 MODEL = "gemma3:4b"
+# Ollama 기본값(약 2,000토큰)이면 긴 문서는 뒷부분이 소리 없이 잘린다.
+# 16,384토큰 ≈ 한국어 약 4만 자. 메모리를 더 쓰므로 너무 크게 잡지 않는다.
+NUM_CTX = 16384
 
 
 def summarize(text: str) -> str:
@@ -15,6 +18,7 @@ def summarize(text: str) -> str:
     response = ollama.chat(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
+        options={"num_ctx": NUM_CTX},
     )
     return response["message"]["content"]
 

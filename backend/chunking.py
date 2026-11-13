@@ -1,20 +1,18 @@
-"""문서 조각내기 (2단계 결과물)
 
-1. 마크다운 제목(#, ##, ###) 기준으로 의미 단위를 나눈다.
-2. 너무 긴 섹션만 글자 수 기준으로 다시 자른다 (겹침 포함).
-3. 잘게 나뉜 조각에도 섹션 제목을 붙여서, 무엇에 대한 내용인지 벡터에 남긴다.
-"""
 
 import re
 from dataclasses import dataclass
 
 CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
+# 제목을 뺀 본문이 이보다 짧은 섹션은 다음 섹션과 합친다.
+# 예: "# 42. 오류 해결" 처럼 제목만 있는 조각은 내용이 없어서 검색 잡음이 된다.
+MIN_BODY_CHARS = 30
 
 
 @dataclass
 class Chunk:
-    id: str  # "파일명#순번" — 다시 색인해도 같은 id라 중복 저장되지 않는다
+    id: str 
     text: str
     source: str
     index: int
@@ -22,8 +20,47 @@ class Chunk:
 
 
 def split_by_heading(text: str) -> list[str]:
+    text = re.sub(r"(?m)^-{3,}\s*$", "", text)  # 구분선(---)은 의미가 없으니 제거
     parts = re.split(r"(?m)^(?=#{1,3} )", text)
     return [part.strip() for part in parts if part.strip()]
+
+
+def get_heading(section: str) -> str:
+    first_line = section.splitlines()[0]
+    return first_line.lstrip("#").strip() if first_line.startswith("#") else ""
+
+
+def body_length(section: str) -> int:
+    """제목 줄을 뺀 본문 글자 수"""
+    lines = section.splitlines()
+    body = lines[1:] if lines and lines[0].startswith("#") else lines
+    return len("".join(body).strip())
+
+
+def merge_short_sections(sections: list[str]) -> list[tuple[str, str]]:
+    """본문이 짧은 섹션은 다음 섹션 앞에 붙인다. (섹션 내용, 합쳐진 제목) 목록을 돌려준다.
+    합쳐진 제목은 "42. 오류 해결 > 오류 1"처럼 이어 붙여서 상위 맥락도 남긴다."""
+    merged: list[tuple[str, str]] = []
+    pending_text: list[str] = []
+    pending_headings: list[str] = []
+
+    for section in sections:
+        pending_text.append(section)
+        if heading := get_heading(section):
+            pending_headings.append(heading)
+
+        if body_length(section) >= MIN_BODY_CHARS:
+            merged.append(("\n\n".join(pending_text), " > ".join(pending_headings)))
+            pending_text, pending_headings = [], []
+
+    if pending_text:  # 문서 끝에 짧은 섹션이 남으면 바로 앞 섹션에 붙인다
+        if merged:
+            last_text, last_heading = merged.pop()
+            merged.append(("\n\n".join([last_text, *pending_text]), last_heading))
+        else:
+            merged.append(("\n\n".join(pending_text), " > ".join(pending_headings)))
+
+    return merged
 
 
 def split_by_size(text: str, size: int, overlap: int) -> list[str]:
@@ -50,15 +87,11 @@ def chunk_document(
 ) -> list[Chunk]:
     chunks: list[Chunk] = []
 
-    for section in split_by_heading(text):
-        first_line = section.splitlines()[0]
-        heading = first_line.lstrip("#").strip() if first_line.startswith("#") else ""
-
+    for section, heading in merge_short_sections(split_by_heading(text)):
         if len(section) <= size:
             pieces = [section]
         else:
             pieces = split_by_size(section, size, overlap)
-            # 두 번째 조각부터는 제목이 잘려 나갔으니 앞에 다시 붙여 준다
             pieces = [pieces[0]] + [f"## {heading}\n{p}" if heading else p for p in pieces[1:]]
 
         for piece in pieces:
