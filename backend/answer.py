@@ -48,8 +48,8 @@ def build_context(hits: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
-def answer(question: str) -> dict:
-    hits = search(question, top_k=TOP_K)
+def answer(question: str, source: str | None = None) -> dict:
+    hits = search(question, top_k=TOP_K, source=source)
     best_score = max((hit["score"] for hit in hits), default=0)
     relevant = [
         hit

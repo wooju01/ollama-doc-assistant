@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { createAnswer } from "../api/questionApi";
 
-export default function QuestionAnswer() {
+export default function QuestionAnswer({ source = null, placeholder }) {
   const [question, setQuestion] = useState("");
   const [askedQuestion, setAskedQuestion] = useState("");
   const [status, setStatus] = useState("idle");
@@ -25,6 +25,7 @@ export default function QuestionAnswer() {
     try {
       const data = await createAnswer({
         question: trimmed,
+        source,
         signal: controller.signal,
       });
       setResult(data);
@@ -52,7 +53,7 @@ export default function QuestionAnswer() {
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
           maxLength={500}
-          placeholder="문서에 대해 질문하세요 (예: npm이 뭐야?)"
+          placeholder={placeholder ?? "문서에 대해 질문하세요 (예: npm이 뭐야?)"}
           className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
         />
         {status === "loading" ? (

@@ -6,11 +6,13 @@ from ingest import embed, get_collection
 TOP_K = 3
 
 
-def search(question: str, top_k: int = TOP_K) -> list[dict]:
+def search(question: str, top_k: int = TOP_K, source: str | None = None) -> list[dict]:
+    """source를 주면 그 문서의 조각에서만 찾는다."""
     collection = get_collection()
     result = collection.query(
-        query_embeddings=embed([question]),  
+        query_embeddings=embed([question]),
         n_results=top_k,
+        where={"source": source} if source else None,
         include=["documents", "metadatas", "distances"],
     )
 

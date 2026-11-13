@@ -33,11 +33,15 @@ def embed(texts: list[str]) -> list[list[float]]:
 
 
 def ingest_file(collection: chromadb.Collection, path: Path) -> int:
-    text = path.read_text(encoding="utf-8")
-    chunks = chunk_document(text, source=path.name)
+    return ingest_text(collection, path.read_text(encoding="utf-8"), source=path.name)
 
-    # 문서가 수정되어 조각 수가 줄었을 수도 있으니, 이 파일의 예전 조각을 먼저 지운다
-    collection.delete(where={"source": path.name})
+
+def ingest_text(collection: chromadb.Collection, text: str, source: str) -> int:
+    """텍스트를 조각내고 임베딩해서 저장한다. 웹 업로드(main.py)에서도 이 함수를 쓴다."""
+    chunks = chunk_document(text, source=source)
+
+    # 문서가 수정되어 조각 수가 줄었을 수도 있으니, 이 문서의 예전 조각을 먼저 지운다
+    collection.delete(where={"source": source})
     if not chunks:
         return 0
 
