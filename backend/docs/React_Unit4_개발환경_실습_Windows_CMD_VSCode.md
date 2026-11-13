@@ -1,4 +1,5 @@
 # React Unit 4 실습 — Windows React 개발환경 구성
+
 ## Node.js · npm · Vite · VS Code
 
 > 대상: React 개발환경을 처음 구성하는 학습자  
@@ -1105,10 +1106,10 @@ function App() {
       <h1>React 개발환경 구성 완료</h1>
       <p>Vite 개발 서버가 정상적으로 실행되고 있습니다.</p>
     </main>
-  )
+  );
 }
 
-export default App
+export default App;
 ```
 
 파일을 저장한다.
@@ -1192,15 +1193,15 @@ npm run build
 
 차이는 **명령을 어디에서 실행하고 Code를 어디에서 편집하는가**이다.
 
-| 구분 | CMD 방식 | VS Code 방식 |
-|---|---|---|
-| 명령 실행 | Windows CMD | VS Code Integrated Terminal |
-| 기본 Shell | cmd.exe | Windows에서는 보통 PowerShell |
-| Source 편집 | 별도 Editor 필요 | VS Code에서 바로 편집 |
-| Folder 확인 | `dir` | Explorer |
-| 개발 Server | `npm run dev` | `npm run dev` |
-| React Project 결과 | 동일 | 동일 |
-| 추천 | Terminal 기본 원리 확인 | 실제 수업·개발 작업 |
+| 구분               | CMD 방식                | VS Code 방식                  |
+| ------------------ | ----------------------- | ----------------------------- |
+| 명령 실행          | Windows CMD             | VS Code Integrated Terminal   |
+| 기본 Shell         | cmd.exe                 | Windows에서는 보통 PowerShell |
+| Source 편집        | 별도 Editor 필요        | VS Code에서 바로 편집         |
+| Folder 확인        | `dir`                   | Explorer                      |
+| 개발 Server        | `npm run dev`           | `npm run dev`                 |
+| React Project 결과 | 동일                    | 동일                          |
+| 추천               | Terminal 기본 원리 확인 | 실제 수업·개발 작업           |
 
 수업에서는 둘 다 경험해보는 것이 좋다.
 

@@ -5,6 +5,7 @@ docs/ 폴더의 문서를 읽어서 → 조각내고 → bge-m3로 임베딩해�
 실행: python ingest.py
 """
 
+import unicodedata
 from pathlib import Path
 
 import chromadb
@@ -28,8 +29,16 @@ def get_collection() -> chromadb.Collection:
     )
 
 
+# 한 번에 너무 많이 보내면 Ollama가 처리하지 못하고 끊긴다 (458개를 한 번에 보냈을 때 실패)
+EMBED_BATCH_SIZE = 32
+
+
 def embed(texts: list[str]) -> list[list[float]]:
-    return ollama.embed(model=EMBED_MODEL, input=texts)["embeddings"]
+    vectors: list[list[float]] = []
+    for start in range(0, len(texts), EMBED_BATCH_SIZE):
+        batch = texts[start : start + EMBED_BATCH_SIZE]
+        vectors.extend(ollama.embed(model=EMBED_MODEL, input=batch)["embeddings"])
+    return vectors
 
 
 def ingest_file(collection: chromadb.Collection, path: Path) -> int:
@@ -38,9 +47,14 @@ def ingest_file(collection: chromadb.Collection, path: Path) -> int:
 
 def ingest_text(collection: chromadb.Collection, text: str, source: str) -> int:
     """텍스트를 조각내고 임베딩해서 저장한다. 웹 업로드(main.py)에서도 이 함수를 쓴다."""
+    # macOS는 한글 파일명을 자모 분리형(NFD)으로 줄 때가 있다. 같은 이름이 둘로 저장되지 않도록 통일한다
+    source = unicodedata.normalize("NFC", source)
     chunks = chunk_document(text, source=source)
 
-    # 문서가 수정되어 조각 수가 줄었을 수도 있으니, 이 문서의 예전 조각을 먼저 지운다
+    # 임베딩을 먼저 끝낸다. 도중에 실패해도 예전 조각은 그대로 남아 있게 하기 위해서다
+    embeddings = embed([chunk.text for chunk in chunks]) if chunks else []
+
+    # 문서가 수정되어 조각 수가 줄었을 수도 있으니, 이 문서의 예전 조각을 지우고 새로 넣는다
     collection.delete(where={"source": source})
     if not chunks:
         return 0
@@ -48,7 +62,7 @@ def ingest_text(collection: chromadb.Collection, text: str, source: str) -> int:
     collection.upsert(
         ids=[chunk.id for chunk in chunks],
         documents=[chunk.text for chunk in chunks],
-        embeddings=embed([chunk.text for chunk in chunks]),
+        embeddings=embeddings,
         metadatas=[
             {"source": chunk.source, "index": chunk.index, "heading": chunk.heading}
             for chunk in chunks

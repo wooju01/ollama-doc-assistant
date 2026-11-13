@@ -47,7 +47,7 @@ export default function App() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="mb-6 text-3xl font-bold">Ollama Doc Assistant</h1>
+      <h1 className="mb-6 text-3xl font-bold">올리마 간단 프로젝트?</h1>
 
       <div role="tablist" className="mb-6 flex gap-1 border-b border-gray-200">
         {TABS.map(({ id, label }) => (
@@ -66,8 +66,6 @@ export default function App() {
           </button>
         ))}
       </div>
-
-      {/* 탭을 바꿔도 입력·결과가 사라지지 않도록 숨기기만 한다 */}
       <div hidden={tab !== "question"}>
         <QuestionAnswer />
       </div>
@@ -117,10 +115,9 @@ export default function App() {
             {uploadStatus === "ready" && uploadedDoc && (
               <>
                 <p className="mb-3 text-sm text-gray-500">
-                  {uploadedDoc.source} · 조각 {uploadedDoc.chunks}개 준비 완료
-                  — 이 문서에서만 찾아서 답합니다.
+                  {uploadedDoc.source} · 조각 {uploadedDoc.chunks}개 준비 완료 —
+                  이 문서에서만 찾아서 답합니다.
                 </p>
-                {/* 다른 파일을 올리면 key가 바뀌어 이전 질문·답변이 초기화된다 */}
                 <QuestionAnswer
                   key={uploadedDoc.source}
                   source={uploadedDoc.source}

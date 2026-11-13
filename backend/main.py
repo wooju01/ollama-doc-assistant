@@ -1,6 +1,8 @@
+import unicodedata
 from pathlib import PurePath
 
 from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -43,7 +45,8 @@ class DocumentResponse(BaseModel):
 @app.post("/api/v1/documents", response_model=DocumentResponse)
 async def upload_document(file: UploadFile):
     """업로드한 파일을 조각내고 임베딩해서 벡터 DB에 저장한다 (같은 이름이면 덮어쓴다)."""
-    filename = PurePath(file.filename or "").name  # 경로가 섞여 와도 파일명만 쓴다
+    # 경로가 섞여 와도 파일명만 쓰고, 한글 자모 분리형(NFD)은 합친다(NFC)
+    filename = unicodedata.normalize("NFC", PurePath(file.filename or "").name)
     if PurePath(filename).suffix.lower() not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=415, detail="지금은 .md, .txt 파일만 지원합니다.")
 
@@ -59,7 +62,8 @@ async def upload_document(file: UploadFile):
     if not text.strip():
         raise HTTPException(status_code=422, detail="파일 내용이 비어 있습니다.")
 
-    chunks = ingest_text(get_collection(), text, source=filename)
+    # 임베딩은 몇 초 걸리는 동기 작업이라, 그동안 다른 요청(요약 등)이 막히지 않게 스레드에서 돌린다
+    chunks = await run_in_threadpool(ingest_text, get_collection(), text, filename)
     return {"source": filename, "chunks": chunks}
 
 

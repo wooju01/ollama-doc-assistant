@@ -19,10 +19,28 @@ class Chunk:
     heading: str
 
 
+HEADING_RE = re.compile(r"^#{1,3} ")
+DIVIDER_RE = re.compile(r"^-{3,}\s*$")
+
+
 def split_by_heading(text: str) -> list[str]:
-    text = re.sub(r"(?m)^-{3,}\s*$", "", text)  # 구분선(---)은 의미가 없으니 제거
-    parts = re.split(r"(?m)^(?=#{1,3} )", text)
-    return [part.strip() for part in parts if part.strip()]
+    """제목(#, ##, ###) 줄마다 새 섹션을 시작한다.
+    단, 코드 블록(```) 안의 '# 주석'이나 '### main.py' 같은 줄은 제목이 아니므로 무시한다."""
+    sections: list[list[str]] = [[]]
+    in_code = False
+
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            in_code = not in_code
+        elif not in_code:
+            if DIVIDER_RE.match(line):  # 구분선(---)은 의미가 없으니 제거
+                continue
+            if HEADING_RE.match(line):
+                sections.append([])
+        sections[-1].append(line)
+
+    parts = ("\n".join(lines).strip() for lines in sections)
+    return [part for part in parts if part]
 
 
 def get_heading(section: str) -> str:
